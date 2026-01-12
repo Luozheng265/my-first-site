@@ -6,7 +6,7 @@ const DEFAULT_WORDS = [
   { word: "empathic", meaning: "有同感的" },
 ];
 
-const STORAGE_KEY = "flashcard_words_v1";
+const STORAGE_KEY = "flashcard_words_v2";
 
 function loadWords() {
   try {
@@ -27,14 +27,50 @@ function saveWords(list) {
 let words = loadWords();
 let i = 0;
 
+// ====== DOM ======
+const modeWordsBtn = document.getElementById("modeWords");
+const modeImportBtn = document.getElementById("modeImport");
+const importPanel = document.getElementById("importPanel");
+const wordsPanel = document.getElementById("wordsPanel");
+
 const flashcard = document.getElementById("flashcard");
 const wordEl = document.getElementById("word");
 const meaningEl = document.getElementById("meaning");
 
+const prevBtn = document.getElementById("prev");
+const nextBtn = document.getElementById("next");
+const flipBtn = document.getElementById("flip");
+
+const fileInput = document.getElementById("fileInput");
+const dropZone = document.getElementById("dropZone");
+const msgEl = document.getElementById("importMsg");
+
+const replaceBtn = document.getElementById("replaceFromFile");
+const appendBtn = document.getElementById("appendFromFile");
+const exportBtn = document.getElementById("exportToFile");
+const templateBtn = document.getElementById("downloadTemplate");
+const resetBtn = document.getElementById("resetDefault");
+
+function showMsg(text) {
+  if (msgEl) msgEl.textContent = text || "";
+}
+
+function setMode(mode) {
+  const isWords = mode === "words";
+  modeWordsBtn.classList.toggle("active", isWords);
+  modeImportBtn.classList.toggle("active", !isWords);
+
+  wordsPanel.classList.toggle("hidden", !isWords);
+  importPanel.classList.toggle("hidden", isWords);
+
+  showMsg("");
+}
+
+// ====== Flashcard ======
 function render() {
   if (!words.length) {
     wordEl.textContent = "（空）";
-    meaningEl.textContent = "请导入单词表";
+    meaningEl.textContent = "请在“导入模式”导入单词";
     flashcard.classList.remove("flipped");
     return;
   }
@@ -48,87 +84,177 @@ function flip() {
   flashcard.classList.toggle("flipped");
 }
 
-// 基础按钮
-document.getElementById("prev").onclick = () => { i = (i - 1 + words.length) % words.length; render(); };
-document.getElementById("next").onclick = () => { i = (i + 1) % words.length; render(); };
-document.getElementById("flip").onclick = flip;
+prevBtn.onclick = () => { if (!words.length) return; i = (i - 1 + words.length) % words.length; render(); };
+nextBtn.onclick = () => { if (!words.length) return; i = (i + 1) % words.length; render(); };
+flipBtn.onclick = flip;
 flashcard.onclick = flip;
 
-// ====== 导入/追加/导出 ======
-const bulkInput = document.getElementById("bulkInput");
-const msgEl = document.getElementById("importMsg");
-
-function showMsg(text) {
-  if (!msgEl) return;
-  msgEl.textContent = text;
+// ====== File import helpers ======
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("读取文件失败"));
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.readAsText(file);
+  });
 }
 
-function parseLinesToWords(text) {
+function looksLikeHeader(a, b) {
+  const x = String(a || "").toLowerCase();
+  const y = String(b || "").toLowerCase();
+  const headerWords = ["word", "meaning", "definition", "释义", "含义", "单词"];
+  return headerWords.some(k => x.includes(k)) && headerWords.some(k => y.includes(k));
+}
+
+function parseTextToWords(text) {
   const lines = text
+    .replace(/\uFEFF/g, "") // BOM
     .split(/\r?\n/)
     .map(s => s.trim())
     .filter(Boolean);
 
   const out = [];
-  for (const line of lines) {
-    // 支持：
-    // neuron - 神经元
-    // 1-neuron-神经元
-    // tone-deaf — 音痴的
-    // 用各种分隔符尝试拆分：- / — / – / :
-    let s = line;
 
-    // 去掉开头序号： 1.  / 1、 / 1- 之类
-    s = s.replace(/^\s*\d+\s*[\.\、\-\)]\s*/, "");
+  for (let idx = 0; idx < lines.length; idx++) {
+    let line = lines[idx];
 
-    // 如果是 1-neuron-神经元 这种，可能会拆出多个段
-    // 我们策略：取第一个“像单词的部分”当 word，最后一段当 meaning
-    const parts = s.split(/\s*(?:—|–|:|-)\s*/).filter(Boolean);
+    // 去掉行首序号：1. / 1、 / 1- / 1) 等
+    line = line.replace(/^\s*\d+\s*[\.\、\-\)]\s*/, "");
+
+    // 优先：tab 分列
+    let parts = line.split("\t").map(s => s.trim()).filter(Boolean);
+
+    // 其次：CSV 逗号分列（只分成两列，避免含义里也有逗号）
+    if (parts.length < 2 && line.includes(",")) {
+      const p = line.split(",");
+      if (p.length >= 2) {
+        parts = [p[0].trim(), p.slice(1).join(",").trim()];
+      }
+    }
+
+    // 再其次：常见连接符（— – - :）
+    if (parts.length < 2) {
+      const p = line.split(/\s*(?:—|–|:|-)\s*/).filter(Boolean);
+      if (p.length >= 2) parts = [p[0].trim(), p.slice(1).join(" - ").trim()];
+    }
 
     if (parts.length >= 2) {
-      const word = parts[0].trim();
-      const meaning = parts.slice(1).join(" - ").trim();
-      if (word && meaning) out.push({ word, meaning });
+      const w = parts[0];
+      const m = parts[1];
+
+      // 跳过表头
+      if (idx === 0 && looksLikeHeader(w, m)) continue;
+
+      if (w && m) out.push({ word: w, meaning: m });
     }
   }
+
   return out;
 }
 
-const replaceBtn = document.getElementById("replaceList");
-const appendBtn = document.getElementById("appendList");
-const exportBtn = document.getElementById("exportList");
+let selectedFile = null;
+let selectedText = "";
 
-if (replaceBtn && appendBtn && exportBtn && bulkInput) {
-  replaceBtn.onclick = () => {
-    const newList = parseLinesToWords(bulkInput.value);
-    if (!newList.length) return showMsg("没有识别到任何有效行（每行要有 单词 + 含义）。");
-    words = newList;
+async function loadSelectedFile(file) {
+  selectedFile = file;
+  selectedText = await readFileAsText(file);
+  showMsg(`已选择文件：${file.name}（${selectedText.length} 字符）`);
+}
+
+// 拖拽交互
+dropZone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  dropZone.classList.add("dragover");
+});
+dropZone.addEventListener("dragleave", () => {
+  dropZone.classList.remove("dragover");
+});
+dropZone.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  dropZone.classList.remove("dragover");
+  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (!file) return;
+  await loadSelectedFile(file);
+});
+
+// 点击选择文件
+fileInput.addEventListener("change", async () => {
+  const file = fileInput.files && fileInput.files[0];
+  if (!file) return;
+  await loadSelectedFile(file);
+});
+
+function applyImport(mode) {
+  if (!selectedFile || !selectedText) {
+    showMsg("请先选择/拖拽一个文件。");
+    return;
+  }
+  const parsed = parseTextToWords(selectedText);
+  if (!parsed.length) {
+    showMsg("没有识别到有效内容：请确保每行至少包含“单词 + 含义”（两列）。");
+    return;
+  }
+
+  if (mode === "replace") {
+    words = parsed;
     i = 0;
     saveWords(words);
     render();
-    showMsg(`✅ 已覆盖导入：${words.length} 条`);
-  };
-
-  appendBtn.onclick = () => {
-    const addList = parseLinesToWords(bulkInput.value);
-    if (!addList.length) return showMsg("没有识别到任何有效行（每行要有 单词 + 含义）。");
-    words = words.concat(addList);
+    showMsg(`✅ 覆盖导入成功：${words.length} 条`);
+  } else {
+    words = words.concat(parsed);
     saveWords(words);
     render();
-    showMsg(`✅ 已追加：+${addList.length} 条（当前共 ${words.length} 条）`);
-  };
-
-  exportBtn.onclick = async () => {
-    const text = words.map(x => `${x.word} - ${x.meaning}`).join("\n");
-    try {
-      await navigator.clipboard.writeText(text);
-      showMsg("✅ 已复制到剪贴板（你可以粘贴到任何地方保存）");
-    } catch {
-      // 复制失败时，放回输入框
-      bulkInput.value = text;
-      showMsg("已生成导出内容（复制输入框里的文本即可）。");
-    }
-  };
+    showMsg(`✅ 追加导入成功：+${parsed.length} 条（当前 ${words.length} 条）`);
+  }
 }
 
+replaceBtn.onclick = () => applyImport("replace");
+appendBtn.onclick = () => applyImport("append");
+
+resetBtn.onclick = () => {
+  words = DEFAULT_WORDS.slice();
+  i = 0;
+  saveWords(words);
+  render();
+  showMsg("已恢复示例单词。");
+};
+
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+templateBtn.onclick = () => {
+  const tpl = [
+    "word\tmeaning",
+    "neuron\t神经元",
+    "tone-deaf\t音痴的",
+    "juggle\t同时应付好几件事"
+  ].join("\n");
+  downloadText("words_template.tsv", tpl);
+  showMsg("已下载模板（TSV）。");
+};
+
+exportBtn.onclick = () => {
+  const text = ["word\tmeaning"]
+    .concat(words.map(x => `${x.word}\t${x.meaning}`))
+    .join("\n");
+  downloadText("my_words.tsv", text);
+  showMsg("已导出当前列表（TSV）。");
+};
+
+// ====== Mode buttons ======
+modeWordsBtn.onclick = () => setMode("words");
+modeImportBtn.onclick = () => setMode("import");
+
+// 初始化
+setMode("words");
 render();
