@@ -7,8 +7,66 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <main class="card">
-    <h1>单词卡片</h1>
+<main class="card">
+  <h1>单词卡片</h1>
+
+  <!-- 模式切换 -->
+  <div class="modebar" role="tablist" aria-label="模式切换">
+    <button id="modeWords" class="mode active" type="button">单词模式</button>
+    <button id="modeImport" class="mode" type="button">导入模式</button>
+  </div>
+
+  <!-- 导入面板：默认隐藏，切到“导入模式”才显示 -->
+  <section id="importPanel" class="import-panel hidden">
+    <h2>从文件导入单词</h2>
+
+    <div id="dropZone" class="dropzone" tabindex="0" role="button">
+      <div class="dz-title">拖拽文件到这里</div>
+      <div class="dz-sub">或点击选择文件（.txt / .csv / .tsv）</div>
+      <input id="fileInput" class="file-input" type="file" accept=".txt,.csv,.tsv,text/plain,text/csv" />
+    </div>
+
+    <div class="import-actions">
+      <button id="replaceFromFile" type="button">覆盖导入</button>
+      <button id="appendFromFile" type="button">追加导入</button>
+      <button id="exportToFile" type="button">导出为文件</button>
+      <button id="downloadTemplate" type="button">下载模板</button>
+      <button id="resetDefault" type="button">恢复示例</button>
+    </div>
+
+    <p class="small" id="importMsg"></p>
+
+    <details class="help">
+      <summary>支持的文件格式（点开看示例）</summary>
+      <div class="small">
+        <div>TXT：每行一条（推荐）</div>
+        <pre>neuron - 神经元
+tone-deaf — 音痴的
+juggle\t同时应付好几件事</pre>
+        <div>CSV/TSV：两列（可带表头也可不带）</div>
+        <pre>word,meaning
+neuron,神经元</pre>
+      </div>
+    </details>
+  </section>
+
+  <!-- 单词卡片区：默认显示 -->
+  <section id="wordsPanel">
+    <div id="flashcard" class="flashcard" title="点击翻面">
+      <div class="front" id="word">neuron</div>
+      <div class="back" id="meaning">神经元</div>
+    </div>
+
+    <div class="btns">
+      <button id="prev" type="button">上一个</button>
+      <button id="flip" type="button">翻面</button>
+      <button id="next" type="button">下一个</button>
+    </div>
+
+    <p class="tip">提示：切到“导入模式”用文件导入你的单词，导入后会自动保存在你的浏览器里。</p>
+  </section>
+</main>
+
 
     <div id="flashcard" class="flashcard" title="点击翻面">
       <div class="front" id="word">neuron</div>
@@ -48,4 +106,5 @@
   <script src="script.js"></script>
 </body>
 </html>
+
 
