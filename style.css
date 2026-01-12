@@ -48,3 +48,34 @@ button{
 }
 button:hover{ background:#f1f1f1; }
 .tip{ color:#666; font-size:13px; margin-top:14px; line-height:1.5; }
+.importer{
+  margin-top:18px;
+  padding-top:14px;
+  border-top:1px dashed #e8e8e8;
+}
+.importer h2{
+  font-size:16px;
+  margin:0 0 8px;
+}
+.small{
+  font-size:12px;
+  color:#666;
+  margin:6px 0 10px;
+  line-height:1.5;
+}
+textarea{
+  width:100%;
+  min-height:120px;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid #e6e6e6;
+  outline:none;
+  resize:vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size:13px;
+  box-sizing:border-box;
+}
+textarea:focus{
+  border-color:#cfcfcf;
+}
+
