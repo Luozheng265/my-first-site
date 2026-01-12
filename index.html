@@ -21,9 +21,31 @@
       <button id="next">下一个</button>
     </div>
 
-    <p class="tip">✅ 等会我们会把它上传到 GitHub，然后用 GitHub Pages 让所有人都能访问。</p>
+    <p class="tip">你可以在下面粘贴单词表，一键导入到网页里（自动保存）。</p>
+
+<section class="importer">
+  <h2>导入单词表</h2>
+  <p class="small">
+    支持格式（每行一个）：<br/>
+    neuron - 神经元<br/>
+    1-neuron-神经元<br/>
+    tone-deaf — 音痴的
+  </p>
+
+  <textarea id="bulkInput" placeholder="把你的单词列表粘贴到这里…"></textarea>
+
+  <div class="btns">
+    <button id="replaceList">覆盖导入</button>
+    <button id="appendList">追加导入</button>
+    <button id="exportList">导出当前列表</button>
+  </div>
+
+  <p class="small" id="importMsg"></p>
+</section>
+
   </main>
 
   <script src="script.js"></script>
 </body>
 </html>
+
